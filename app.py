@@ -5,7 +5,7 @@ from datetime import datetime
 # CONFIGURATION DE LA PAGE
 # =============================================================================
 st.set_page_config(
-    page_title="MASI Futures Pro",
+    page_title="EFP Calculator",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -65,7 +65,7 @@ st.markdown("""
 # =============================================================================
 # EN-TÊTE
 # =============================================================================
-st.markdown('<p class="main-header">🏦 MASI Futures Pro</p>', unsafe_allow_html=True)
+st.markdown('<p class="main-header">🏦 EFP Calculator</p>', unsafe_allow_html=True)
 st.markdown('<p class="sub-header">Calculateur d\'Exigences en Fonds Propres - Circulaire 26/G/2006</p>', unsafe_allow_html=True)
 st.markdown("---")
 

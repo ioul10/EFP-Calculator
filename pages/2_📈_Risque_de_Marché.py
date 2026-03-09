@@ -61,32 +61,12 @@ st.markdown("""
         margin: 20px 0;
         font-family: 'Courier New', monospace;
     }
-    .warning-box {
-        background: #fff3cd;
+    .method-selector {
+        background: #fff3e0;
         padding: 15px;
         border-radius: 8px;
-        border-left: 4px solid #ffc107;
+        border-left: 4px solid #ff9800;
         margin: 15px 0;
-    }
-    .success-box {
-        background: #d4edda;
-        padding: 15px;
-        border-radius: 8px;
-        border-left: 4px solid #28a745;
-        margin: 15px 0;
-    }
-    .risk-type-card {
-        background: white;
-        padding: 20px;
-        border-radius: 10px;
-        border: 2px solid #ff9800;
-        margin: 10px 0;
-        cursor: pointer;
-        transition: all 0.3s;
-    }
-    .risk-type-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -141,15 +121,16 @@ RISK_TYPES_DATA = {
             - ✅ Risque Général : Variation liée au marché global
             - ✅ Calcul séparé par devise : MAD, EUR, USD
             
-            **Méthodes de calcul :**
+            **Méthodes de calcul du risque général :**
             - Méthode de l'Échéancier (standard)
-            - Méthode de la Duration (sur autorisation BAM)
+            - Méthode de la Duration (sur autorisation BAM - Art. 70-II-B-2 NT)
             """,
             "formule": "EFP = Risque Spécifique + Risque Général",
             "variables": {
                 "EFP": "Exigence en Fonds Propres totale",
                 "Risque Spécifique": "Σ(|Position Nette| × Pondération selon notation)",
-                "Risque Général": "Calcul selon méthode échéancier ou duration",
+                "Risque Général (Échéancier)": "Compensation par zones + pondérations 10%-100%",
+                "Risque Général (Duration)": "Duration modifiée × variation taux + compensation",
                 "Devises": "Calcul séparé pour MAD, EUR, USD"
             }
         },
@@ -164,6 +145,9 @@ RISK_TYPES_DATA = {
                 
                 Cette exigence est calculée, séparément, pour chacune des monnaies 
                 suivantes : le dirham, l'euro et le dollar.
+                
+                Le risque général est calculé selon la méthode de l'échéancier ou 
+                la méthode de la duration (sur autorisation préalable de BAM).
                 """
             }
         ],
@@ -182,21 +166,10 @@ RISK_TYPES_DATA = {
                 - Compensation intra-fourchette, intra-zone, inter-zones
                 - Pondérations : 10%, 30%, 40%, 100% selon compensation
                 
-                C) Méthode Duration :
+                C) Risque Général - Méthode Duration :
                 - Duration modifiée = Duration / (1 + r)
                 - Même logique de compensation que méthode échéancier
-                """
-            },
-            {
-                "numéro": "Article 63-68",
-                "titre": "Éligibilité et Évaluation - NT 02/DSB/2007",
-                "contenu": """
-                Conditions d'éligibilité au portefeuille de négociation :
-                - Stratégie documentée et approuvée
-                - Gestion active avec limites
-                - Évaluation quotidienne (prix marché ou modèle)
-                - Vérification indépendante mensuelle des prix
-                - Séparation claire portefeuille négociation/bancaire
+                - Nécessite autorisation préalable de Bank Al-Maghrib
                 """
             }
         ],
@@ -252,16 +225,20 @@ RISK_TYPES_DATA = {
             - ✅ Risque Spécifique : Facteur lié à l'émetteur
             - ✅ Risque Général : Évolution générale du marché
             
-            **Conditions portefeuille liquide et diversifié :**
-            - Titres dans indices boursiers (Annexe 1 NT)
-            - Aucune position > 5% du portefeuille (ou 10% si total < 50%)
+            **Types d'instruments (Art. 70-III-A NT) :**
+            - Titres de propriété standard (8%)
+            - Portefeuille liquide et diversifié (4%)
+            - Parts OPCVM actions (2%)
+            - Contrats sur indices majeurs (2%)
+            - Contrats sur indices sectoriels (4%)
+            - Arbitrage sur instruments à terme (2%)
             """,
             "formule": "EFP = Risque Spécifique + Risque Général",
             "variables": {
                 "EFP": "Exigence en Fonds Propres totale",
-                "Risque Spécifique": "8% (ou 4% si liquide/diversifié) × Position Brute",
+                "Risque Spécifique": "Coefficient × Position Brute (selon instrument)",
                 "Risque Général": "8% × Position Nette Globale",
-                "OPCVM Actions": "2% × Position Brute"
+                "Conditions Liquide/Diversifié": "Titres dans indices + aucune position >5% (ou 10%)"
             }
         },
         "articles_g26": [
@@ -273,10 +250,10 @@ RISK_TYPES_DATA = {
                 correspond à la somme des exigences en fonds propres requises au 
                 titre du risque spécifique et du risque général.
                 
-                Le risque spécifique est de 8% de la position brute (ou 4% si 
-                portefeuille liquide et diversifié).
-                
-                Le risque général est de 8% de la position nette globale.
+                Le risque spécifique varie selon le type d'instrument :
+                - 8% : Position brute standard
+                - 4% : Portefeuille liquide et diversifié
+                - 2% : Parts OPCVM actions, contrats indices majeurs
                 """
             }
         ],
@@ -285,25 +262,24 @@ RISK_TYPES_DATA = {
                 "numéro": "Article 70 - Section III",
                 "titre": "Calcul Détaillé - NT 02/DSB/2007",
                 "contenu": """
-                A) Risque Spécifique :
-                - 8% : Position brute standard
-                - 4% : Portefeuille liquide et diversifié
-                - 2% : Parts OPCVM actions, contrats indices majeurs
-                - 4% : Indices sectoriels insuffisamment diversifiés
+                A) Risque Spécifique selon instrument :
+                - 8% : Titres de propriété standard
+                - 4% : Portefeuille liquide et diversifié (indices Annexe 1 + 
+                       aucune position >5% du portefeuille ou 10% si total <50%)
+                - 2% : Parts OPCVM actions
+                - 2% : Contrats sur indices majeurs (liste Annexe 1 NT)
+                - 4% : Contrats sur indices sectoriels insuffisamment diversifiés
+                - 2% : Arbitrage sur instruments à terme par branche
                 
                 B) Risque Général :
                 - 8% × Position Nette Globale
                 - Calcul séparé par marché national
-                - Conversion au taux de change au comptant BAM
-                
-                C) Indices Boursiers (Annexe 1 NT) :
-                MASI, MADEX, CAC 40, FTSE 100, S&P 500, DAX, Nikkei 225, etc.
                 """
             }
         ],
         "tables": {
-            "Pondérations Titres": {
-                "headers": ["Type de Position", "Condition", "Coefficient"],
+            "Coefficients par Instrument": {
+                "headers": ["Type d'Instrument", "Condition", "Coefficient"],
                 "data": [
                     ["Titres de propriété", "Portefeuille standard", "8%"],
                     ["Titres de propriété", "Liquide et diversifié", "4%"],
@@ -350,16 +326,6 @@ RISK_TYPES_DATA = {
                    ou du total des positions nettes longues en devises
                 2) La valeur absolue de la position nette sur or
                 """
-            },
-            {
-                "numéro": "Article 52",
-                "titre": "Seuil de Calcul - Circulaire 26/G/2006",
-                "contenu": """
-                Les établissements sont tenus de procéder au calcul d'une exigence 
-                en fonds propres au titre du risque de change, sur base individuelle 
-                et/ou sur base consolidée, dès lors que la somme de leurs positions 
-                de change nettes excède 2% de leurs fonds propres.
-                """
             }
         ],
         "articles_nt": [
@@ -374,17 +340,6 @@ RISK_TYPES_DATA = {
                 
                 Étape 2 : Calcul de l'Exigence
                 - 8% × [max(Σ|Long|, Σ|Court|) + |Position Or|]
-                - Toutes positions nettes converties quotidiennement en MAD
-                """
-            },
-            {
-                "numéro": "Article 73",
-                "titre": "Base Consolidée - NT 02/DSB/2007",
-                "contenu": """
-                Pour le calcul sur base consolidée, lorsque la consolidation 
-                technique est difficile pour certaines positions de devises 
-                négligeables, la limite interne pour chaque devise est à ajouter 
-                à la position ouverte nette dans chaque devise.
                 """
             }
         ],
@@ -403,16 +358,15 @@ RISK_TYPES_DATA = {
             - ✅ Produits agricoles
             - ✅ Produits énergétiques
             
-            **Méthodes de calcul :**
+            **Méthodes de calcul (Art. 70-V-B NT) :**
             - Méthode Tableau d'Échéances (standard)
             - Méthode Simplifiée (volumes négligeables)
             """,
             "formule": "EFP = 1,5% × Compensées + 0,6% × Reports + 15% × Résiduelles",
             "variables": {
-                "EFP": "Exigence en Fonds Propres",
-                "Compensées": "Positions compensées intra-fourchette",
-                "Reports": "Positions reportées (0,6% par report)",
-                "Résiduelles": "Positions résiduelles non compensées"
+                "EFP (Tableau)": "1,5% × positions compensées + 0,6% × reports + 15% × résiduelles",
+                "EFP (Simplifiée)": "15% × position nette + 3% × positions brutes",
+                "Fourchettes": "0-1 mois, 1-3 mois, 3-6 mois, 6-12 mois, 1-2 ans, 2-3 ans, >3 ans"
             }
         },
         "articles_g26": [
@@ -523,11 +477,6 @@ RISK_TYPES_DATA = {
                 
                 B) Risque Vega :
                 - Formule : vega × (25% × volatilité implicite)
-                - Applicable à toutes catégories de sous-jacent
-                
-                C) Agrégation :
-                - Pas de compensation entre fourchettes différentes
-                - Calcul séparé par devise (taux) ou marché (titres)
                 """
             }
         ],
@@ -577,12 +526,6 @@ RISK_TYPES_DATA = {
                 L'exigence en fonds propres relative aux positions nettes sur 
                 dérivés de crédit correspond à la somme des exigences en fonds 
                 propres requises au titre du risque spécifique et du risque général.
-                
-                Le risque spécifique est calculé selon les pondérations du risque 
-                de taux d'intérêt (Section I-A).
-                
-                Le risque général est calculé conformément au paragraphe B de la 
-                Section I (méthode échéancier ou duration).
                 """
             }
         ],
@@ -595,15 +538,6 @@ RISK_TYPES_DATA = {
                 - CDS et/ou CLN opposés
                 - Mêmes créances de référence, montant, devise, échéance
                 - Position résiduelle de 20% soumise au risque spécifique
-                
-                B) TRS :
-                - Vendeur protection = Position longue créance référence
-                - Acheteur protection = Position courte créance référence
-                
-                C) FDS/SDS :
-                - Couvre actif du panier avec pondération la plus faible
-                - Choix libre si plusieurs actifs même pondération
-                - Position résiduelle 20% après compensation
                 """
             }
         ],
@@ -704,9 +638,24 @@ st.markdown("### 🧮 Calculateur Pratique")
 
 if "Taux d'Intérêt" in risque_type:
     # =============================================================================
-    # CALCULATEUR TAUX D'INTÉRÊT
+    # CALCULATEUR TAUX D'INTÉRÊT - CORRECTION 1 : AJOUT MÉTHODE DURATION
     # =============================================================================
     st.markdown("#### 🏦 Risque de Taux d'Intérêt")
+    
+    # Sélection de la méthode
+    st.markdown("##### 📋 Sélection de la Méthode de Calcul")
+    methode_taux = st.radio(
+        "Méthode pour le risque général",
+        ["Méthode de l'Échéancier", "Méthode de la Duration"],
+        horizontal=True,
+        help="La méthode de la duration nécessite une autorisation préalable de Bank Al-Maghrib (Art. 70-II-B-2 NT)"
+    )
+    
+    st.markdown(f"""
+        <div class="method-selector">
+            <strong>Méthode sélectionnée :</strong> {methode_taux}
+        </div>
+    """, unsafe_allow_html=True)
     
     # Risque Spécifique
     st.markdown("##### A) Risque Spécifique")
@@ -745,23 +694,61 @@ if "Taux d'Intérêt" in risque_type:
     
     st.metric("EFP Risque Spécifique", f"{efp_specifique:.3f} MDH")
     
-    # Risque Général
+    # Risque Général - DEUX CADRES SELON MÉTHODE
     st.markdown("---")
-    st.markdown("##### B) Risque Général (Méthode Échéancier)")
+    st.markdown(f"##### B) Risque Général - {methode_taux}")
     
-    col3, col4, col5 = st.columns(3)
-    
-    with col3:
-        position_zone1 = st.number_input("Zone 1 (0-1 an) (MDH)", value=50.0, step=10.0)
-    with col4:
-        position_zone2 = st.number_input("Zone 2 (1-4 ans) (MDH)", value=30.0, step=10.0)
-    with col5:
-        position_zone3 = st.number_input("Zone 3 (>4 ans) (MDH)", value=20.0, step=10.0)
-    
-    # Calcul simplifié risque général
-    efp_general = (position_zone1 * 0.40 + position_zone2 * 0.30 + position_zone3 * 0.30) * 0.08
-    
-    st.metric("EFP Risque Général", f"{efp_general:.3f} MDH")
+    if methode_taux == "Méthode de l'Échéancier":
+        # CADRE 1 : MÉTHODE ÉCHÉANCIER
+        col3, col4, col5 = st.columns(3)
+        
+        with col3:
+            st.markdown("**Zone 1 (0-1 an)**")
+            position_zone1 = st.number_input("Position Nette (MDH)", value=50.0, step=10.0, key="ech_z1")
+        
+        with col4:
+            st.markdown("**Zone 2 (1-4 ans)**")
+            position_zone2 = st.number_input("Position Nette (MDH)", value=30.0, step=10.0, key="ech_z2")
+        
+        with col5:
+            st.markdown("**Zone 3 (>4 ans)**")
+            position_zone3 = st.number_input("Position Nette (MDH)", value=20.0, step=10.0, key="ech_z3")
+        
+        # Calcul simplifié risque général échéancier
+        efp_general = (abs(position_zone1) * 0.40 + abs(position_zone2) * 0.30 + abs(position_zone3) * 0.30) * 0.08
+        
+        st.info("📌 Méthode de l'échéancier : Compensation intra-zone et inter-zones selon Art. 70-II-B-1 NT")
+        
+    else:
+        # CADRE 2 : MÉTHODE DURATION
+        st.warning("⚠️ La méthode de la duration nécessite une autorisation préalable de Bank Al-Maghrib")
+        
+        col_d1, col_d2, col_d3 = st.columns(3)
+        
+        with col_d1:
+            st.markdown("**Zone 1 (Duration 0-1 an)**")
+            duration_zone1 = st.number_input("Duration Modifiée Moyenne", value=0.5, step=0.1, key="dur_z1")
+            position_d1 = st.number_input("Position Nette (MDH)", value=50.0, step=10.0, key="dur_pos1")
+        
+        with col_d2:
+            st.markdown("**Zone 2 (Duration 1-4 ans)**")
+            duration_zone2 = st.number_input("Duration Modifiée Moyenne", value=2.5, step=0.1, key="dur_z2")
+            position_d2 = st.number_input("Position Nette (MDH)", value=30.0, step=10.0, key="dur_pos2")
+        
+        with col_d3:
+            st.markdown("**Zone 3 (Duration >4 ans)**")
+            duration_zone3 = st.number_input("Duration Modifiée Moyenne", value=7.0, step=0.5, key="dur_z3")
+            position_d3 = st.number_input("Position Nette (MDH)", value=20.0, step=10.0, key="dur_pos3")
+        
+        # Calcul risque général duration
+        variation_taux = 0.01  # 1% variation présumée
+        position_ponderee_z1 = abs(position_d1) * duration_zone1 * variation_taux
+        position_ponderee_z2 = abs(position_d2) * duration_zone2 * variation_taux
+        position_ponderee_z3 = abs(position_d3) * duration_zone3 * variation_taux
+        
+        efp_general = (position_ponderee_z1 * 0.40 + position_ponderee_z2 * 0.30 + position_ponderee_z3 * 0.30) * 0.05
+        
+        st.info("📌 Méthode de la duration : Duration modifiée × variation taux × pondérations (Art. 70-II-B-2 NT)")
     
     # Total
     efp_totale_taux = efp_specifique + efp_general
@@ -778,23 +765,51 @@ if "Taux d'Intérêt" in risque_type:
 
 elif "Titres de Propriété" in risque_type:
     # =============================================================================
-    # CALCULATEUR TITRES DE PROPRIÉTÉ
+    # CALCULATEUR TITRES DE PROPRIÉTÉ - CORRECTION 2 : CHOIX INSTRUMENTS
     # =============================================================================
     st.markdown("#### 📊 Risque sur Titres de Propriété")
+    
+    # Sélection du type d'instrument
+    st.markdown("##### 📋 Sélection du Type d'Instrument")
+    type_instrument = st.selectbox(
+        "Type d'instrument (Art. 70-III-A NT)",
+        [
+            "Titres de propriété - Portefeuille standard (8%)",
+            "Titres de propriété - Liquide et diversifié (4%)",
+            "Parts OPCVM actions (2%)",
+            "Contrats sur indices majeurs - Liste Annexe 1 (2%)",
+            "Contrats sur indices sectoriels - Insuffisamment diversifiés (4%)",
+            "Arbitrage sur instruments à terme - Par branche (2%)"
+        ],
+        index=0
+    )
+    
+    # Mapping coefficients
+    mapping_coeff = {
+        "Titres de propriété - Portefeuille standard (8%)": 8.0,
+        "Titres de propriété - Liquide et diversifié (4%)": 4.0,
+        "Parts OPCVM actions (2%)": 2.0,
+        "Contrats sur indices majeurs - Liste Annexe 1 (2%)": 2.0,
+        "Contrats sur indices sectoriels - Insuffisamment diversifiés (4%)": 4.0,
+        "Arbitrage sur instruments à terme - Par branche (2%)": 2.0
+    }
+    
+    coefficient = mapping_coeff.get(type_instrument, 8.0)
+    
+    st.markdown(f"""
+        <div class="method-selector">
+            <strong>Instrument sélectionné :</strong> {type_instrument}<br/>
+            <strong>Coefficient risque spécifique :</strong> {coefficient}%
+        </div>
+    """, unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     
     with col1:
         st.markdown("**Risque Spécifique**")
         position_brute = st.number_input("Position Brute Titres (MDH)", value=100.0, step=10.0)
-        portefeuille_diversifie = st.checkbox("Portefeuille Liquide et Diversifié", value=False)
         
-        if portefeuille_diversifie:
-            ponderation_specifique = 4.0
-        else:
-            ponderation_specifique = 8.0
-        
-        efp_specifique = position_brute * (ponderation_specifique / 100)
+        efp_specifique = position_brute * (coefficient / 100)
         st.metric("EFP Risque Spécifique", f"{efp_specifique:.2f} MDH")
     
     with col2:
@@ -846,34 +861,62 @@ elif "Change" in risque_type:
 
 elif "Produits de Base" in risque_type:
     # =============================================================================
-    # CALCULATEUR PRODUITS DE BASE
+    # CALCULATEUR PRODUITS DE BASE - CORRECTION 3 : AJOUT MÉTHODE SIMPLIFIÉE
     # =============================================================================
     st.markdown("#### 🛢️ Risque sur Produits de Base")
     
-    methode = st.selectbox("Méthode de Calcul", ["Tableau d'Échéances", "Approche Simplifiée"])
+    # Sélection de la méthode
+    st.markdown("##### 📋 Sélection de la Méthode de Calcul")
+    methode_produits = st.radio(
+        "Méthode de calcul",
+        ["Tableau d'Échéances", "Approche Simplifiée"],
+        horizontal=True,
+        help="L'approche simplifiée est réservée aux volumes négligeables (Art. 70-V-B-2 NT)"
+    )
     
-    if methode == "Approche Simplifiée":
+    st.markdown(f"""
+        <div class="method-selector">
+            <strong>Méthode sélectionnée :</strong> {methode_produits}
+        </div>
+    """, unsafe_allow_html=True)
+    
+    if methode_produits == "Approche Simplifiée":
+        # CADRE MÉTHODE SIMPLIFIÉE
         col1, col2 = st.columns(2)
         with col1:
-            position_nette = st.number_input("Position Nette (MDH)", value=100.0, step=10.0)
+            position_nette = st.number_input("Position Nette (MDH)", value=100.0, step=10.0, key="prod_net")
         with col2:
-            position_brute = st.number_input("Position Brute (MDH)", value=150.0, step=10.0)
+            position_brute = st.number_input("Position Brute Totale (MDH)", value=150.0, step=10.0, key="prod_brut")
         
         efp_produits = (position_nette * 0.15) + (position_brute * 0.03)
-        st.metric("EFP Produits de Base", f"{efp_produits:.2f} MDH")
+        
+        st.info("📌 Approche simplifiée : 15% position nette + 3% positions brutes (Art. 70-V-B-2 NT)")
+        
     else:
-        st.info("📌 Méthode Tableau d'Échéances : Calcul complet par fourchette en développement")
+        # CADRE MÉTHODE TABLEAU D'ÉCHÉANCES
+        st.markdown("##### Méthode Tableau d'Échéances")
         
         col1, col2 = st.columns(2)
         with col1:
-            positions_compensees = st.number_input("Positions Compensées Intra-Fourchette (MDH)", value=50.0, step=10.0)
+            positions_compensees = st.number_input("Positions Compensées Intra-Fourchette (MDH)", value=50.0, step=10.0, key="tab_comp")
         with col2:
-            positions_residuelles = st.number_input("Positions Résiduelles (MDH)", value=30.0, step=10.0)
+            positions_residuelles = st.number_input("Positions Résiduelles (MDH)", value=30.0, step=10.0, key="tab_res")
         
-        reports = st.number_input("Nombre de Reports", value=1, min_value=0)
+        reports = st.number_input("Nombre de Reports", value=1, min_value=0, key="tab_reports")
         
         efp_produits = (positions_compensees * 0.015) + (positions_compensees * 0.006 * reports) + (positions_residuelles * 0.15)
+        
+        st.info("📌 Tableau d'échéances : 1,5% compensées + 0,6% reports + 15% résiduelles (Art. 70-V-B-1 NT)")
+    
+    st.markdown("---")
+    st.markdown("##### 💰 Résultat Final")
+    
+    col_res1, col_res2 = st.columns(2)
+    with col_res1:
         st.metric("EFP Produits de Base", f"{efp_produits:.2f} MDH")
+    with col_res2:
+        risque_pondere = efp_produits * 12.5
+        st.metric("Risque Pondéré Marché", f"{risque_pondere:.2f} MDH")
 
 elif "Options" in risque_type:
     # =============================================================================
@@ -969,9 +1012,22 @@ col_exp1, col_exp2 = st.columns(2)
 
 with col_exp1:
     if st.button("📥 Exporter les Résultats (CSV)", use_container_width=True):
+        if "Taux" in risque_type:
+            efp_calc = efp_totale_taux
+        elif "Titres" in risque_type:
+            efp_calc = efp_totale_titres
+        elif "Change" in risque_type:
+            efp_calc = efp_change
+        elif "Produits" in risque_type:
+            efp_calc = efp_produits
+        elif "Options" in risque_type:
+            efp_calc = efp_options
+        else:
+            efp_calc = efp_derivs_credit
+        
         resultats = {
             "Type de Risque": [risque_type],
-            "EFP Calculée (MDH)": [efp_totale_taux if "Taux" in risque_type else (efp_totale_titres if "Titres" in risque_type else (efp_change if "Change" in risque_type else (efp_produits if "Produits" in risque_type else (efp_options if "Options" in risque_type else efp_derivs_credit))))],
+            "EFP Calculée (MDH)": [efp_calc],
             "Risque Pondéré (MDH)": [risque_pondere if "risque_pondere" in locals() else "N/A"]
         }
         df_export = pd.DataFrame(resultats)

@@ -763,6 +763,391 @@ if "Taux d'Intérêt" in risque_type:
         risque_pondere = efp_totale_taux * 12.5
         st.metric("Risque Pondéré Marché", f"{risque_pondere:.3f} MDH")
 
+
+elif "Taux d'Intérêt" in risque_type:
+    # =============================================================================
+    # CALCULATEUR TAUX D'INTÉRÊT - MÉTHODE ÉCHÉANCIER DÉTAILLÉE
+    # =============================================================================
+    st.markdown("#### 🏦 Risque de Taux d'Intérêt - Méthode Échéancier")
+    
+    # Sélection de la méthode
+    methode_taux = st.radio(
+        "Méthode pour le risque général",
+        ["Méthode de l'Échéancier", "Méthode de la Duration"],
+        horizontal=True,
+        help="La méthode de la duration nécessite une autorisation préalable de Bank Al-Maghrib (Art. 70-II-B-2 NT)"
+    )
+    
+    st.markdown(f"""
+        <div class="method-selector">
+            <strong>Méthode sélectionnée :</strong> {methode_taux}
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # =============================================================================
+    # ÉTAPE 1 : RISQUE SPÉCIFIQUE
+    # =============================================================================
+    st.markdown("##### 📋 Étape 1 : Risque Spécifique")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        position_nette_spec = st.number_input(
+            "Position Nette Titres de Créance (MDH)", 
+            value=100.0, 
+            step=10.0,
+            help="Valeur absolue de la position nette sur titres de créance"
+        )
+        type_emission = st.selectbox(
+            "Nature de l'Émission",
+            [
+                "État Marocain/BAM (MAD) - 0%",
+                "Souverain AAA-AA- - 0%",
+                "Souverain A+-BBB- ≤6 mois - 0,25%",
+                "Souverain A+-BBB- 6-24 mois - 1,00%",
+                "Souverain A+-BBB- >24 mois - 1,60%",
+                "Souverain BB+-B- - 8,00%",
+                "Souverain <B- - 12,00%",
+                "Émissions qualifiées ≤6 mois - 0,25%",
+                "Émissions qualifiées 6-24 mois - 1,00%",
+                "Émissions qualifiées >24 mois - 1,60%",
+                "Autres BB+-BB- - 8,00%",
+                "Autres <BB- - 12,00%",
+                "Autres Non noté - 8,00%"
+            ]
+        )
+    
+    # Mapping pondérations risque spécifique
+    mapping_pond_spec = {
+        "État Marocain/BAM (MAD) - 0%": 0.0,
+        "Souverain AAA-AA- - 0%": 0.0,
+        "Souverain A+-BBB- ≤6 mois - 0,25%": 0.25,
+        "Souverain A+-BBB- 6-24 mois - 1,00%": 1.00,
+        "Souverain A+-BBB- >24 mois - 1,60%": 1.60,
+        "Souverain BB+-B- - 8,00%": 8.00,
+        "Souverain <B- - 12,00%": 12.00,
+        "Émissions qualifiées ≤6 mois - 0,25%": 0.25,
+        "Émissions qualifiées 6-24 mois - 1,00%": 1.00,
+        "Émissions qualifiées >24 mois - 1,60%": 1.60,
+        "Autres BB+-BB- - 8,00%": 8.00,
+        "Autres <BB- - 12,00%": 12.00,
+        "Autres Non noté - 8,00%": 8.00
+    }
+    
+    ponderation_spec = mapping_pond_spec.get(type_emission, 8.0)
+    efp_specifique = abs(position_nette_spec) * (ponderation_spec / 100)
+    
+    st.metric("EFP Risque Spécifique", f"{efp_specifique:.3f} MDH", 
+              delta=f"{ponderation_spec}% pondération")
+    
+    # =============================================================================
+    # ÉTAPE 2 : RISQUE GÉNÉRAL - MÉTHODE ÉCHÉANCIER
+    # =============================================================================
+    if methode_taux == "Méthode de l'Échéancier":
+        st.markdown("---")
+        st.markdown("##### 📊 Étape 2 : Risque Général - Méthode Échéancier")
+        
+        # Affichage du tableau des zones et fourchettes
+        with st.expander("📋 Tableau des Zones et Fourchettes d'Échéances", expanded=True):
+            df_zones = pd.DataFrame({
+                "Zone": ["Zone 1"]*4 + ["Zone 2"]*4 + ["Zone 3"]*7,
+                "Fourchette (Coupon ≥3%)": [
+                    "0-1 mois", "1-3 mois", "3-6 mois", "6-12 mois",
+                    "1-2 ans", "2-3 ans", "3-4 ans", "4-5 ans",
+                    "5-7 ans", "7-10 ans", "10-15 ans", "15-20 ans", ">20 ans"
+                ],
+                "Pondération %": [
+                    0.00, 0.20, 0.70, 0.70,
+                    1.25, 1.75, 2.25, 2.75,
+                    3.25, 3.75, 4.50, 5.25, 6.00, 8.00, 12.50
+                ],
+                "Variation Taux %": [
+                    1.00, 1.00, 1.00, 1.00,
+                    0.90, 0.80, 0.75, 0.75,
+                    0.70, 0.65, 0.60, 0.60, 0.60, 0.60, 0.60
+                ]
+            })
+            st.dataframe(df_zones, use_container_width=True, hide_index=True)
+        
+        # =============================================================================
+        # SAISIE DES POSITIONS PAR FOURCHETTE
+        # =============================================================================
+        st.markdown("###### 📥 Saisie des Positions Nettes par Fourchette")
+        
+        # Définition des fourchettes avec leurs paramètres
+        fourchettes = [
+            # Zone 1
+            {"nom": "Z1: 0-1 mois", "zone": 1, "ponderation": 0.00, "coupon_ge3": True},
+            {"nom": "Z1: 1-3 mois", "zone": 1, "ponderation": 0.20, "coupon_ge3": True},
+            {"nom": "Z1: 3-6 mois", "zone": 1, "ponderation": 0.70, "coupon_ge3": True},
+            {"nom": "Z1: 6-12 mois", "zone": 1, "ponderation": 0.70, "coupon_ge3": True},
+            # Zone 2
+            {"nom": "Z2: 1-2 ans", "zone": 2, "ponderation": 1.25, "coupon_ge3": True},
+            {"nom": "Z2: 2-3 ans", "zone": 2, "ponderation": 1.75, "coupon_ge3": True},
+            {"nom": "Z2: 3-4 ans", "zone": 2, "ponderation": 2.25, "coupon_ge3": True},
+            {"nom": "Z2: 4-5 ans", "zone": 2, "ponderation": 2.75, "coupon_ge3": True},
+            # Zone 3
+            {"nom": "Z3: 5-7 ans", "zone": 3, "ponderation": 3.25, "coupon_ge3": True},
+            {"nom": "Z3: 7-10 ans", "zone": 3, "ponderation": 3.75, "coupon_ge3": True},
+            {"nom": "Z3: 10-15 ans", "zone": 3, "ponderation": 4.50, "coupon_ge3": True},
+            {"nom": "Z3: 15-20 ans", "zone": 3, "ponderation": 5.25, "coupon_ge3": True},
+            {"nom": "Z3: >20 ans", "zone": 3, "ponderation": 6.00, "coupon_ge3": True},
+        ]
+        
+        # Interface de saisie dynamique
+        positions_data = {}
+        
+        col_a, col_b, col_c = st.columns(3)
+        cols = [col_a, col_b, col_c]
+        
+        for idx, fourchette in enumerate(fourchettes):
+            with cols[idx % 3]:
+                pos_value = st.number_input(
+                    f"{fourchette['nom']} (MDH)",
+                    value=0.0,
+                    step=10.0,
+                    key=f"pos_{fourchette['nom']}",
+                    help=f"Pondération: {fourchette['ponderation']}%"
+                )
+                positions_data[fourchette['nom']] = {
+                    "position": pos_value,
+                    "zone": fourchette['zone'],
+                    "ponderation": fourchette['ponderation']
+                }
+        
+        # =============================================================================
+        # CALCUL AUTOMATIQUE
+        # =============================================================================
+        st.markdown("---")
+        st.markdown("##### 🧮 Calcul Automatique")
+        
+        if st.button("🔄 Lancer le Calcul", type="primary"):
+            # Étape 1: Calcul des positions pondérées
+            positions_ponderees = {}
+            for nom, data in positions_data.items():
+                pos_ponderee = abs(data['position']) * (data['ponderation'] / 100)
+                positions_ponderees[nom] = {
+                    "position": data['position'],
+                    "ponderation": data['ponderation'],
+                    "position_ponderee": pos_ponderee,
+                    "zone": data['zone']
+                }
+            
+            # Étape 2: Compensation intra-fourchette
+            compensations_intra = {}
+            residuelles_intra = {}
+            
+            for nom, data in positions_ponderees.items():
+                # Pour la démo, on suppose que la position est soit longue soit courte
+                # Dans la réalité, il faudrait séparer positions longues et courtes
+                pos = data['position']
+                if pos >= 0:
+                    compensations_intra[nom] = 0  # Pas de compensation si pas de position opposée
+                    residuelles_intra[nom] = data['position_ponderee']
+                else:
+                    compensations_intra[nom] = 0
+                    residuelles_intra[nom] = data['position_ponderee']
+            
+            # Étape 3: Compensation intra-zone
+            zones = {1: [], 2: [], 3: []}
+            for nom, data in residuelles_intra.items():
+                zones[positions_ponderees[nom]['zone']].append(data)
+            
+            compensations_zone = {}
+            residuelles_zone = {}
+            
+            for zone_num, values in zones.items():
+                longs = [v for v in values if v >= 0]
+                courts = [abs(v) for v in values if v < 0]
+                somme_longs = sum(longs)
+                somme_courts = sum(courts)
+                
+                compense = min(somme_longs, somme_courts)
+                residuelle = abs(somme_longs - somme_courts)
+                
+                compensations_zone[zone_num] = compense
+                residuelles_zone[zone_num] = residuelle
+            
+            # Étape 4: Compensation inter-zones
+            # Zone 1 ↔ Zone 2
+            comp_12 = min(residuelles_zone[1], residuelles_zone[2])
+            resid_1_after_12 = residuelles_zone[1] - comp_12
+            resid_2_after_12 = residuelles_zone[2] - comp_12
+            
+            # Zone 2 (résiduel) ↔ Zone 3
+            comp_23 = min(resid_2_after_12, residuelles_zone[3])
+            resid_2_final = resid_2_after_12 - comp_23
+            resid_3_after_23 = residuelles_zone[3] - comp_23
+            
+            # Zone 1 (résiduel) ↔ Zone 3 (résiduel)
+            comp_13 = min(resid_1_after_12, resid_3_after_23)
+            resid_1_final = resid_1_after_12 - comp_13
+            resid_3_final = resid_3_after_23 - comp_13
+            
+            # Étape 5: Calcul final EFP risque général
+            efp_general = (
+                0.10 * sum(compensations_intra.values()) +  # 10% toutes fourchettes
+                0.40 * compensations_zone[1] +  # 40% Zone 1
+                0.30 * compensations_zone[2] +  # 30% Zone 2
+                0.30 * compensations_zone[3] +  # 30% Zone 3
+                0.40 * (comp_12 + comp_23) +  # 40% inter-zones 1↔2 et 2↔3
+                1.00 * comp_13 +  # 100% inter-zones 1↔3
+                1.00 * (resid_1_final + resid_2_final + resid_3_final)  # 100% résiduelles
+            )
+            
+            # =============================================================================
+            # AFFICHAGE DES RÉSULTATS DÉTAILLÉS
+            # =============================================================================
+            st.markdown("###### 📈 Résultats Détaillés du Calcul")
+            
+            # Tableau récapitulatif des positions
+            df_resultats = pd.DataFrame([
+                {
+                    "Fourchette": nom,
+                    "Zone": data['zone'],
+                    "Position (MDH)": data['position'],
+                    "Pondération %": data['ponderation'],
+                    "Position Pondérée": f"{data['position_ponderee']:.3f}"
+                }
+                for nom, data in positions_ponderees.items()
+            ])
+            st.dataframe(df_resultats, use_container_width=True, hide_index=True)
+            
+            # Résumé des compensations
+            col_r1, col_r2, col_r3 = st.columns(3)
+            
+            with col_r1:
+                st.markdown("**Compensations Intra-Zone**")
+                st.success(f"Zone 1: {compensations_zone[1]:.3f} MDH")
+                st.success(f"Zone 2: {compensations_zone[2]:.3f} MDH")
+                st.success(f"Zone 3: {compensations_zone[3]:.3f} MDH")
+            
+            with col_r2:
+                st.markdown("**Compensations Inter-Zones**")
+                st.info(f"Zone 1 ↔ Zone 2: {comp_12:.3f} MDH")
+                st.info(f"Zone 2 ↔ Zone 3: {comp_23:.3f} MDH")
+                st.info(f"Zone 1 ↔ Zone 3: {comp_13:.3f} MDH")
+            
+            with col_r3:
+                st.markdown("**Positions Résiduelles**")
+                st.warning(f"Zone 1: {resid_1_final:.3f} MDH")
+                st.warning(f"Zone 2: {resid_2_final:.3f} MDH")
+                st.warning(f"Zone 3: {resid_3_final:.3f} MDH")
+            
+            # Résultat final
+            st.markdown("---")
+            st.markdown("##### 💰 Résultat Final - Risque de Taux")
+            
+            efp_totale_taux = efp_specifique + efp_general
+            
+            col_final1, col_final2, col_final3 = st.columns(3)
+            
+            with col_final1:
+                st.metric(
+                    label="EFP Risque Spécifique",
+                    value=f"{efp_specifique:.3f} MDH",
+                    delta=None
+                )
+            
+            with col_final2:
+                st.metric(
+                    label="EFP Risque Général (Échéancier)",
+                    value=f"{efp_general:.3f} MDH",
+                    delta=None
+                )
+            
+            with col_final3:
+                st.metric(
+                    label="EFP Totale Taux d'Intérêt",
+                    value=f"{efp_totale_taux:.3f} MDH",
+                    delta=None,
+                    delta_color="inverse"
+                )
+            
+            # Risque pondéré
+            risque_pondere = efp_totale_taux * 12.5
+            st.info(f"📊 **Risque Pondéré Marché** : {risque_pondere:.3f} MDH (EFP × 12,5)")
+            
+            # Détails du calcul dans un expander
+            with st.expander("📝 Détails Formules de Calcul"):
+                st.write(f"""
+                **Formule Risque Spécifique :**
+                ```
+                EFP_spécifique = |Position Nette| × Pondération
+                = {abs(position_nette_spec):.2f} × {ponderation_spec}% = {efp_specifique:.3f} MDH
+                ```
+                
+                **Formule Risque Général (Échéancier) :**
+                ```
+                EFP_général = 
+                  10% × Σ(Compensées toutes fourchettes)
+                + 40% × (Compensée Zone 1)
+                + 30% × (Compensée Zone 2)
+                + 30% × (Compensée Zone 3)
+                + 40% × (Compensée Zones 1↔2 + 2↔3)
+                + 100% × (Compensée Zones 1↔3)
+                + 100% × (Positions résiduelles non compensées)
+                
+                = {0.10 * sum(compensations_intra.values()):.3f} 
+                + {0.40 * compensations_zone[1]:.3f} 
+                + {0.30 * compensations_zone[2]:.3f} 
+                + {0.30 * compensations_zone[3]:.3f} 
+                + {0.40 * (comp_12 + comp_23):.3f} 
+                + {1.00 * comp_13:.3f} 
+                + {1.00 * (resid_1_final + resid_2_final + resid_3_final):.3f}
+                = {efp_general:.3f} MDH
+                ```
+                
+                **Références réglementaires :**
+                - Article 54-I-B de la Circulaire 26/G/2006
+                - Article 70-II-B-1 de la NT 02/DSB/2007
+                """)
+    
+    # =============================================================================
+    # MÉTHODE DE LA DURATION (SIMPLIFIÉE)
+    # =============================================================================
+    else:  # Méthode de la Duration
+        st.warning("⚠️ La méthode de la duration nécessite une autorisation préalable de Bank Al-Maghrib")
+        
+        st.markdown("###### 📥 Saisie par Duration Modifiée")
+        
+        col_d1, col_d2, col_d3 = st.columns(3)
+        
+        with col_d1:
+            st.markdown("**Zone 1 (Duration 0-1 an)**")
+            duration_z1 = st.number_input("Duration Modifiée Moyenne", value=0.5, step=0.1, key="dur_z1_input")
+            pos_d1 = st.number_input("Position Nette (MDH)", value=50.0, step=10.0, key="dur_pos1_input")
+        
+        with col_d2:
+            st.markdown("**Zone 2 (Duration 1-4 ans)**")
+            duration_z2 = st.number_input("Duration Modifiée Moyenne", value=2.5, step=0.1, key="dur_z2_input")
+            pos_d2 = st.number_input("Position Nette (MDH)", value=30.0, step=10.0, key="dur_pos2_input")
+        
+        with col_d3:
+            st.markdown("**Zone 3 (Duration >4 ans)**")
+            duration_z3 = st.number_input("Duration Modifiée Moyenne", value=7.0, step=0.5, key="dur_z3_input")
+            pos_d3 = st.number_input("Position Nette (MDH)", value=20.0, step=10.0, key="dur_pos3_input")
+        
+        if st.button("🔄 Calculer (Duration)", type="primary"):
+            variation_taux = 0.01  # 1% variation présumée
+            
+            pos_pond_z1 = abs(pos_d1) * duration_z1 * variation_taux
+            pos_pond_z2 = abs(pos_d2) * duration_z2 * variation_taux
+            pos_pond_z3 = abs(pos_d3) * duration_z3 * variation_taux
+            
+            # Compensation simplifiée
+            efp_general_dur = (pos_pond_z1 * 0.40 + pos_pond_z2 * 0.30 + pos_pond_z3 * 0.30) * 0.05
+            
+            efp_totale_dur = efp_specifique + efp_general_dur
+            
+            col_rd1, col_rd2 = st.columns(2)
+            with col_rd1:
+                st.metric("EFP Risque Général (Duration)", f"{efp_general_dur:.3f} MDH")
+            with col_rd2:
+                st.metric("EFP Totale Taux", f"{efp_totale_dur:.3f} MDH")
+                
+                        
+
 elif "Titres de Propriété" in risque_type:
     # =============================================================================
     # CALCULATEUR TITRES DE PROPRIÉTÉ - CORRECTION 2 : CHOIX INSTRUMENTS

@@ -195,8 +195,9 @@ with col_nav3:
 st.markdown("---")
 st.markdown(f"""
     <div style="text-align: center; color: #999; font-size: 12px; padding: 20px;">
-        <p><strong>MASI Futures Pro v0.2 Beta</strong></p>
+        <p><strong>EFP Calculator V.Académique</strong></p>
         <p>Développé avec Streamlit | {datetime.now().strftime("%Y")} | Déployé sur GitHub</p>
         <p>Conforme à la Circulaire 26/G/2006 de Bank Al-Maghrib</p>
+        <p>Réalisé par OULMADANI Ilyas</p>
     </div>
 """, unsafe_allow_html=True)

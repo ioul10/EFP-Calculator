@@ -110,7 +110,7 @@ st.sidebar.info("""
 # DONNÉES PAR TYPE DE RISQUE
 # =============================================================================
 RISK_TYPES_DATA = {
-    "🏦 Taux d'Intérêt": {
+    "🏦 Taux d'Intérêt*": {
         "concept": {
             "titre": "Risque de Taux d'Intérêt",
             "description": """

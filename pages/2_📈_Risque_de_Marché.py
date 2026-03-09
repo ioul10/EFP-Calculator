@@ -87,6 +87,7 @@ risque_type = st.sidebar.radio(
     "Sélectionner le type de risque",
     [
         "🏦 Taux d'Intérêt",
+        "🏦 Taux d'Intérêt*",
         "📊 Titres de Propriété",
         "💱 Change",
         "🛢️ Produits de Base",

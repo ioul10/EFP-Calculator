@@ -764,7 +764,7 @@ if "Taux d'Intérêt" in risque_type:
         st.metric("Risque Pondéré Marché", f"{risque_pondere:.3f} MDH")
 
 
-elif "Taux d'Intérêt" in risque_type:
+elif "Taux d'Intérêt*" in risque_type:
     # =============================================================================
     # CALCULATEUR TAUX D'INTÉRÊT - MÉTHODE ÉCHÉANCIER DÉTAILLÉE
     # =============================================================================
